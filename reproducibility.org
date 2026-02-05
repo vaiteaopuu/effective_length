@@ -1,0 +1,901 @@
+* Artificial matrix
+** correlated random sequences
+
+#+begin_src python
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from src.utils import sample_covariance, sample_sequences_from_cov, get_one_hot
+import numpy as np
+import matplotlib.pyplot as plt
+np.random.seed(42)
+
+N, L, k = 100, 10, 4
+n_rep = 30  # number of replicate MSAs per rho
+
+def minmax(x):
+    x = np.asarray(x, float)
+    return (x - x.min()) / (x.max() - x.min() + 1e-12)
+
+rho_grid = np.linspace(0.1, 1, 10)
+
+Leff_all  = []
+kmer_all  = []
+Neff_all  = []
+PE_all    = []
+avgd_all  = []
+
+for rho in rho_grid:
+    cov = sample_covariance(L, k, rho=rho)
+
+    Leff_rep  = []
+    kmer_rep  = []
+    Neff_rep  = []
+    PE_rep    = []
+    avgd_rep  = []
+
+    for _ in range(n_rep):
+        Xi  = sample_sequences_from_cov(cov, L, k, N)
+        X   = get_one_hot(Xi, k)
+
+        Leff      = effective_length(X, zs=True)
+        kmer_neff = kmer_entropy(Xi, 2)
+        Neff      = neff_seq(X, 0.8)
+        PE        = pos_entropy(X, neff=False)
+        avg       = average_dist(X)
+
+        Leff_rep.append(Leff / L)
+        kmer_rep.append(kmer_neff / N)
+        Neff_rep.append(Neff / N)
+        PE_rep.append(PE / k)
+        avgd_rep.append(avg / L)
+
+    Leff_all.append(Leff_rep)
+    kmer_all.append(kmer_rep)
+    Neff_all.append(Neff_rep)
+    PE_all.append(PE_rep)
+    avgd_all.append(avgd_rep)
+
+Leff_all = np.asarray(Leff_all)
+kmer_all = np.asarray(kmer_all)
+Neff_all = np.asarray(Neff_all)
+PE_all   = np.asarray(PE_all)
+avgd_all = np.asarray(avgd_all)
+
+Leff_mean = Leff_all.mean(axis=1)
+kmer_mean = kmer_all.mean(axis=1)
+Neff_mean = Neff_all.mean(axis=1)
+PE_mean   = PE_all.mean(axis=1)
+avgd_mean = avgd_all.mean(axis=1)
+
+fig, ax = plt.subplots(figsize=(1.97, 1.97))
+
+ax.plot(rho_grid, Leff_mean,  'o-', markersize=4, label=r'$L_{\mathrm{eff}} / L$')
+ax.plot(rho_grid, PE_mean,    'o-', markersize=4, label='Pos. entropy')
+ax.plot(rho_grid, kmer_mean,  'o-', markersize=4, label='2-mer neff')
+ax.plot(rho_grid, Neff_mean,  'o-', markersize=4, label=r'$N_{\mathrm{eff}} / N$')
+ax.plot(rho_grid, avgd_mean,  'o-', markersize=4, label=r'$\bar{d} / L$')
+
+ax.set_xlim(rho_grid.min(), rho_grid.max()*1.02)
+
+# remove top and right spines
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.tick_params(labelsize=8)
+
+# keep or remove legend depending on whether you will add labels in Inkscape
+ax.legend(frameon=False, fontsize=7)
+
+plt.tight_layout()
+# fig.savefig(f"./img/synth/rho_div_t0.8.svg", dpi=300, transparent=True)
+plt.show()
+#+end_src
+
+#+RESULTS:
+: None
+** Change the alphabet size
+
+#+begin_src python
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from src.utils import sample_covariance, sample_sequences_from_cov, get_one_hot, make_mu_biased
+import numpy as np
+import matplotlib.pyplot as plt
+np.random.seed(42)
+
+N, L, k = 1000, 10, 4
+n_rep = 30  # number of replicate MSAs per rho
+
+def minmax(x):
+    x = np.asarray(x, float)
+    return (x - x.min()) / (x.max() - x.min() + 1e-12)
+
+rho_grid = np.linspace(0.1, 1, 10)
+
+Leff_all  = []
+
+k_list = np.array(list(range(4, 20)))
+rho = 0.5
+for k in k_list:
+    cov = sample_covariance(L, k, rho=rho)
+    Leff_rep  = []
+
+    for _ in range(n_rep):
+        Xi  = sample_sequences_from_cov(cov, L, k, N)
+        X   = get_one_hot(Xi, k)
+
+        Leff      = effective_length(X, zs=True)
+
+        Leff_rep.append(Leff / L)
+
+    Leff_all.append(Leff_rep)
+
+Leff_all = np.asarray(Leff_all)
+
+Leff_mean = Leff_all.mean(axis=1)
+
+fig, ax = plt.subplots(figsize=(1.97, 1.97))
+
+ax.plot(k_list, Leff_mean,  'o-', markersize=4, label=r'$L_{\mathrm{eff}} / L$')
+
+ax.set_ylim(0, 1)
+ax.set_xlim(k_list.min(), k_list.max()*1.02)
+
+# remove top and right spines
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.tick_params(labelsize=8)
+
+# keep or remove legend depending on whether you will add labels in Inkscape
+ax.legend(frameon=False, fontsize=7)
+
+plt.tight_layout()
+# fig.savefig(f"./img/synth/k_div_t0.5.svg", dpi=300, transparent=True)
+plt.show()
+#+end_src
+
+#+RESULTS:
+: None
+
+** Effective support size
+
+#+begin_src python
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from src.utils import sample_covariance, sample_sequences_from_cov, get_one_hot, make_mu_biased
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Large sample to approximate "true" support, small sample to estimate from
+N_big, N_small, k = 100_000, 100, 4
+Ls   = [4, 6, 8, 10]
+rhos = np.linspace(0.0, 1.0, 10)
+n_rep = 10
+
+# Color map: one color per L
+cmap = plt.get_cmap("viridis", len(rhos))
+fig, ax = plt.subplots(figsize=(1.97, 1.97))  # ≈ 5×5 cm
+
+for ci, L in enumerate(Ls):
+    mu = make_mu_biased(L, k, 1, 1 / k)
+
+    eff_emp_list  = []   # "true" support size from big sample
+    neff_iso_list = []   # Ω_eff from L_eff
+    neff_ent_list = []   # optional entropy-based comparator (not plotted here)
+
+    for rho in rhos:
+        # --- ground-truth support from a very large sample ---
+        cov = sample_covariance(L, k, rho=rho)
+        Xi_big = sample_sequences_from_cov(cov, L, k, N_big, mu=mu)
+        _, counts = np.unique(Xi_big, axis=0, return_counts=True)
+        p = counts / counts.sum()
+        eff_emp = np.exp(-np.sum(p * np.log(p)))  # empirical effective support size
+
+        # --- estimates from small samples ---
+        r_iso, r_ent = [], []
+        for _ in range(n_rep):
+            Xi_small = sample_sequences_from_cov(cov, L, k, N_small, mu=mu)
+            X_small  = get_one_hot(Xi_small, k)
+
+            # Ω_eff from L_eff
+            r_iso.append(effective_length(X_small, zs=True, neff=True))
+            r_ent.append(pos_entropy(X_small, neff=True))
+
+        eff_emp_list.append(eff_emp)
+        neff_iso_list.append(np.mean(r_iso))
+        neff_ent_list.append(np.mean(r_ent))
+
+    eff_emp_arr  = np.array(eff_emp_list)
+    neff_iso_arr = np.array(neff_iso_list)
+
+    # log10-scale comparison of true vs estimated support
+    color = cmap(ci)
+    ax.scatter(
+        np.log10(eff_emp_arr),
+        np.log10(neff_iso_arr),
+        label=rf"$L={L}$",
+        c=[cmap(rho) for rho in rhos],
+        s=L
+    )
+
+# identity line (perfect agreement)
+vmin = 0
+vmax = np.ceil(max(ax.get_xlim()[1], ax.get_ylim()[1]))
+ax.plot([vmin, vmax], [vmin, vmax], lw=0.8, color="black", linestyle="--")
+
+# aesthetics
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.tick_params(labelsize=8)
+
+ax.set_xlim(vmin, vmax)
+ax.set_ylim(vmin, vmax)
+
+# axis labels are placeholders; you can relabel in Inkscape later
+# ax.set_xlabel(r"$\log_{10}$ true support size", fontsize=9)
+# ax.set_ylabel(r"$\log_{10}\,\Omega_{\mathrm{eff}}$", fontsize=9)
+
+ax.legend(loc="upper left", fontsize=7, frameon=False, ncol=2)
+
+plt.tight_layout()
+# fig.savefig("img/synth/supp_size_fit_b.svg", dpi=300, transparent=True, bbox_inches="tight", pad_inches=0.01)
+# fig.savefig("img/synth/supp_size_no_zero_sum.png", dpi=300, bbox_inches="tight", pad_inches=0.01)
+plt.show()
+#+end_src
+
+#+RESULTS:
+: None
+
+** Expected diversity from designed RNA
+
+#+begin_src python
+from src.utils import rna_inverse
+from eff_len import read_fasta, msa_to_oh, effective_length
+import RNA
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import spearmanr
+
+target_trna = "(((((((..((((...........)))).(((((.......)))))....(((((.......))))))))))))...."
+tar_list = [
+    "((((((((...)))))((((.((((...)))))))).)))",
+    "((((.(((.((((.((((((...)))))))))))))))))",
+    "((((((((((((((.(((...)))))).)))))))).)))",
+    "((((((((.((((.((((...))))..))))))).)))))",
+    "((((((....))))))(((((((((.....))))))))).",
+    "((((((((((.(((((....))))).)))))))...))).",
+    "((((((((((....))).))).(((((....)))))))))",
+    "((((((((.(((.(((((....))))))))))))..))))",
+    "((((((.((((..(((((....)))))..))))))).)))",
+    "(((((((...))))..))).((((((...))).)))....",
+    "((((((.((((.(((((...))))).))))...))).)))",
+    "(((.(((((.(((...))).(((.....))))))))))).",
+    "(((((((..((((((((...)))).))))..)))))))..",
+    "(((((((((((((((((.....)))))))))))).)))))",
+    "...(((....))).((((((...(((...))).)))))).",
+    ".(((.(((....)))..)))(((.(((...)))....)))",
+    ".(((.(((......))).)))........(((.....)))",
+    ".(((((...)))))((((.((((((...))))))))))..",
+    "((((((((((.......)))(((...))))))...)))).",
+    ".....((((....(((..(((....)))...)))))))..",
+    ".....(((((((..(((....))).)))...)))).....",
+    "(((((.((((((....))).(((...))).))).))))).",
+    "....(((...(((.(((.(((...)))))))))...))).",
+    "..((((......))))....(((.(((...)))..)))..",
+    "...((((((((((...)))).......)))..))).....",
+    "...(((.................)))((((.....)))).",
+    "...(((((..(((.........)))........)))))..",
+    "..((((.(((............)))))))(((...)))..",
+    ".(((...........)))((((..(((...)))))))...",
+    ".....(((............))).....(((......)))",
+    "..(((.....(((..............))).....)))..",
+    ".......................(((((.....)))))..",
+    "(((...)))..((((.......)))).....(((...)))",
+    ".......((((((....)))............))).....",
+    "..(((.....(((..............)))......))).",
+    ".(((..........)))...(((.............))).",
+    "...........(((....))).(((...........))).",
+    ".....(((((........)))))....(((...)))....",
+    ".(((....((((............))))))).........",
+".............(((...................))).."
+ ]
+
+tmp = []
+for target in tar_list:
+    N = 500
+    designs = rna_inverse(target, N)
+    msa_oh = msa_to_oh(designs)
+    nrj_list = [RNA.eval_structure_simple(seq, target) for seq in designs]
+    tmp += [(np.mean(nrj_list), effective_length(msa_oh))]
+
+nrj_, leff_ = zip(*tmp)
+cor, pval = spearmanr(nrj_, leff_)
+plt.rcParams.update({"font.size": 8})
+fig, ax = plt.subplots(figsize=(1.97, 1.97))
+ax.scatter(nrj_, leff_, s=8)
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.annotate(f"$\\rho=${cor:.2f} \npvalue"+"$\\approx 10^{-7}$",
+            xy=(0.05, 0.95),
+            xycoords="axes fraction",
+            ha="left", va="top")
+ax.set_xlabel("$\\Delta G$")
+ax.set_ylabel("$L_{eff}$")
+# plt.savefig("img/synth/nrj_l_eff.svg", dpi=300, transparent=True)
+plt.show()
+
+tmp_n = []
+Nf_l = np.logspace(np.log10(10), np.log10(1000), 10).astype(int)
+target = tar_list[0]
+for Nf in Nf_l:
+    print(Nf)
+    designs = rna_inverse(target, Nf)
+    msa_oh = msa_to_oh(designs)
+    tmp_n += [(Nf, effective_length(msa_oh))]
+n_, leff_ = zip(*tmp_n)
+
+tmp_nu = []
+Nf_l = np.logspace(np.log10(10), np.log10(1000), 10).astype(int)
+target = tar_list[-1]
+for Nf in Nf_l:
+    print(Nf)
+    designs = rna_inverse(target, Nf)
+    msa_oh = msa_to_oh(designs)
+    tmp_nu += [(Nf, effective_length(msa_oh))]
+n_, leff_u = zip(*tmp_nu)
+
+plt.rcParams.update({"font.size": 8})
+fig, ax = plt.subplots(figsize=(1.97, 1.97))
+ax.scatter(n_, leff_u, label="Unstable", s=8)
+ax.scatter(n_, leff_, label="Stable", s=8)
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.set_xlabel("N")
+ax.set_ylabel("$L_{eff}$")
+ax.legend(frameon=False)
+# plt.tight_layout()
+# plt.savefig("img/synth/conv_leff_N.svg", dpi=300, transparent=True)
+plt.show()
+
+N = 500
+designs = rna_inverse(target_trna, N)
+msa_oh = msa_to_oh(designs)
+print(effective_length(msa_oh))
+#+end_src
+
+tRNA
+L_ = 78
+L_eff = 37.3707604490231
+
+* RNA sequences
+** Convergence in diversity
+
+#+begin_src python
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from src.utils import read_fasta, msa_to_oh, msa_to_ind
+import numpy as np
+import matplotlib.pyplot as plt
+from glob import glob
+import re
+
+tmp = {}
+N, L, k = 100, 3, 4
+for msa_file in glob("./data/FC_NAR/RNA_MSA/*.txt"):
+    name = re.match("./data/FC_NAR/RNA_MSA/(.*).txt", msa_file).group(1)
+
+    msa = read_fasta(msa_file, seq_type="nuc")
+    Xi = msa_to_ind(msa, seq_type="nuc")
+    X = msa_to_oh(list(msa.values()), seq_type="nuc")
+    N, L, k = X.shape
+    tmp[name] = []
+    for kf in np.linspace(0.1, 1, 20):
+        Nk = int(N * kf)
+        idx = np.random.choice(X.shape[0], size=Nk, replace=False)
+        X_sub = X[idx]
+        isp = effective_length(X_sub, zs=True)
+        tmp[name] += [(kf, L, isp)]
+
+
+all_d = []
+kf_ref = None
+
+for name in tmp:
+    try:
+        kf_, L_, isp_ = zip(*tmp[name])
+        kf_ = np.asarray(kf_)
+        isp_ = np.asarray(isp_)
+
+        order = np.argsort(kf_)
+        kf_ = kf_[order]
+        isp_ = isp_[order]
+
+        d_isp = np.gradient(isp_, kf_)
+        all_d.append(d_isp)
+
+        if kf_ref is None:
+            kf_ref = kf_
+    except:
+        print("ERR", name)
+
+all_d = np.vstack(all_d)
+
+# mean and 95% CI
+plt.rcParams.update({"font.size": 8})
+fig, ax = plt.subplots(figsize=(1.97, 1.97))
+mean_d = all_d.mean(axis=0)
+sem_d = all_d.std(axis=0, ddof=1) / np.sqrt(all_d.shape[0])
+ci95 = 1.96 * sem_d
+ax.plot(kf_ref, mean_d, lw=1, color="C0")
+ax.scatter(kf_ref, mean_d, color="C0", s=2)
+ax.fill_between(kf_ref, mean_d - ci95, mean_d + ci95, alpha=0.3)
+ax.set_xlabel("kf")
+ax.set_ylabel("$\\frac{\\mathrm{d}L_{eff}}{\\mathrm{d}N}$")
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+# plt.savefig("../img/dLeff_dN.svg", dpi=300, transparent=True)
+plt.show()
+#+end_src
+
+% 0.52631579 of the data the diversity improvement as data gets bigger is adding
+a lot of redundancy (convergence of L_eff). Gradient lower than 0.05 gain.
+
+** MSA support size
+
+#+begin_src python
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from src.utils import read_fasta, msa_to_oh, msa_to_ind
+import numpy as np
+import matplotlib.pyplot as plt
+from glob import glob
+import re
+from scipy.stats import spearmanr, pearsonr
+import RNA
+
+omega = {
+    "RF00005": 1.98e22, "RF00028": 1.48e46, "RF00050": 1.10e32, "RF00059": 4.16e33, "RF00080": 5.47e35, "RF00114": 3.18e25, "RF00162": 5.80e28, "RF00167": 1.63e31, "RF00168": 1.13e51, "RF00169": 1.22e28,
+    "RF00234": 4.28e41, "RF00379": 1.05e39, "RF00380": 3.85e35, "RF00442": 2.13e24, "RF00504": 5.42e27, "RF01051": 9.01e24, "RF01725": 5.69e24, "RF01734": 1.75e19, "RF01750": 5.13e25, "RF01786": 1.05e21,
+    "RF01831": 1.33e21, "RF01852": 4.36e22, "RF01854": 9.20e39, "RF02001": 7.64e41, "RF02553": 3.43e15,
+}
+
+N, L, k = 100, 3, 4
+tmp = {}
+for infile in glob("../data/FC_NAR/RNA_MSA/*.txt"):
+    name = re.match("../data/FC_NAR/RNA_MSA/(.*).txt", infile).group(1)
+    if "_" in name:
+        name = re.match("(.+)_.+", name).group(1)
+
+    msa = read_fasta(infile, seq_type="nuc")
+    fc = RNA.fold_compound(list(msa.values()))
+
+    _, mfe = fc.mfe()
+    Xi = msa_to_ind(msa, seq_type="nuc")
+    X = msa_to_oh(list(msa.values()), seq_type="nuc")
+    N, L, k = X.shape
+    pe = pos_entropy(X, neff=True)
+    Neff_w = neff_seq(X, wei=True)
+    isp_ref = effective_length(X, zs=True, neff=True)
+    isp_sel = effective_length(X, zs=True, neff=True, w=Neff_w)
+    tmp[name] = [isp_ref, isp_sel, pe, mfe, L, N]
+    print("{:30} {:8} {:8} {:8.2f}".format(name, N, L, mfe))
+
+name_l = list(omega.keys())
+x = [np.log10(omega[name]) for name in name_l if name in tmp]
+y_ref = [np.log10(tmp[name][0]) for name in name_l if name in tmp]
+y_sel = [np.log10(tmp[name][1]) for name in name_l if name in tmp]
+y_pe = [np.log10(tmp[name][2]) for name in name_l if name in tmp]
+
+print("{:.2f}".format(pearsonr(x, y_ref)[0]))
+print("{:.2f}".format(pearsonr(x, y_sel)[0]))
+plt.rcParams.update({"font.size": 8})
+fig, ax = plt.subplots(figsize=(1.97, 1.97))
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.scatter(x, y_ref, s=8, c="gray", label="$L_{eff}$")
+ax.scatter(x, y_sel, s=8, c="C0", label="$L^S_{eff}$")
+# ax.scatter(x, y_op, s=8)
+# ax.scatter(y_sel, y_pe, s=8)
+ax.plot([min(x+y_ref+y_sel), max(x+y_ref+y_sel)], [min(x+y_ref+y_sel), max(x+y_ref+y_sel)], linestyle="--", c="grey")
+ax.set_aspect(1)
+ax.legend(frameon=False)
+ax.set_xlabel("$\\Omega_{eaDCA}$")
+ax.set_ylabel("$\\Omega_{SE}$")
+plt.tight_layout()
+# plt.savefig("img/RNA/supp_size.svg", dpi=300, transparent=True)
+plt.show()
+
+plt.rcParams.update({"font.size": 8})
+cor, pval = pearsonr(y_sel, y_pe)
+# print(spearmanr(y_sel, y_pe))
+plt.rcParams.update({"font.size": 8})
+fig, ax = plt.subplots(figsize=(1.67, 1.67))
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.scatter(y_ref, y_pe, s=8)
+# ax.plot([min(x+y_ref+y_sel), max(x+y_ref+y_sel)], [min(x+y_ref+y_sel), max(x+y_ref+y_sel)], linestyle="--", c="grey")
+# ax.set_aspect(1)
+ax.legend(frameon=False)
+# ax.set_xlabel("$\\Omega_{eaDCA}$")
+# ax.set_ylabel("$\\Omega_{SE}$")
+ax.set_xlabel("$L_{eff}/L$")
+ax.set_ylabel("$\\Delta G_{ALI}$")
+ax.annotate(f"$\\rho=${cor:.2f} pvalue={pval:.3f}",
+            xy=(0.05, 0.95),
+            xycoords="axes fraction",
+            ha="left", va="top")
+# plt.tight_layout()
+plt.savefig("../img/RNA/nrj_mfe_L_eff.svg", dpi=300, transparent=True)
+plt.show()
+#+end_src
+
+** DCA
+
+#+begin_src python
+from src.dca.utils import read_fasta, msa_to_oh, get_one_hot, oh_to_msa
+from src.dca.new_dca import fit_model, gibbs, init_chains, get_freq_single_point, get_freq_two_points
+import torch
+from torch import log2
+import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
+from sklearn.metrics import r2_score
+import numpy as np
+
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from src.utils import read_fasta, msa_to_oh, msa_to_ind
+from glob import glob
+import re
+
+max_steps = 100
+n_gibbs = 10
+min_pearson = 0.95
+lr = 1e-2
+l1_a = 1e-4
+N = 1000
+nb_gibbs = 100
+beta = 1
+
+tmp = []
+for msa_file in glob("./data/FC_NAR/RNA_MSA/*.txt"):
+    name = re.match("./data/FC_NAR/RNA_MSA/(.*).txt", msa_file).group(1)
+    msa = [re.sub(r'[^AGUC]', '-', seq) for seq in read_fasta(msa_file).values()]
+    msa_oh = msa_to_oh(msa)
+
+    h_parms_a, j_parms_a = fit_model(torch.tensor(msa_oh), max_steps, min_pearson, lr=lr, l1=l1_a, nb_gibbs=n_gibbs, N=100)
+
+    M, L, q = msa_oh.shape
+    chains = init_chains(q, N, L)
+    chains = gibbs(chains, h_parms_a, j_parms_a, beta, nb_gibbs)
+
+    fij, pij = get_freq_two_points(msa_oh), get_freq_two_points(chains)
+
+    X_ref = msa_oh
+    Nr, L, k = X_ref.shape
+
+    X_gen = chains.numpy()
+    N, L, k = X_gen.shape
+
+    ref_div = effective_length(X_ref)
+    gen_div = effective_length(X_gen)
+    tmp += [(name, Nr, L, ref_div, gen_div, pearsonr(fij.flatten(), pij.flatten()))]
+
+name_l, Nr_l, L_l, ref_div_l, gen_div_l, _ = zip(*tmp)
+
+print("Gen = {:.2f}".format(np.mean(ref_div_l)))
+print("Nat = {:.2f}".format(np.mean(gen_div_l)))
+print("Ratio = {:.2f}".format(np.mean(np.array(gen_div_l)/np.array(ref_div_l))))
+
+fig, ax = plt.subplots(figsize=(1.9, 1.7))
+ax.hist([ref_div_l, gen_div_l], bins=20, density=True, histtype="step", label=["Natural", "Generated"])
+# ax.set_ylabel("density")
+# ax.set_xlabel("$L_{eff}$")
+ax.legend(frameon=False)
+ax.spines['right'].set_visible(False)
+ax.spines['top'].set_visible(False)
+ax.tick_params(top=False, right=False)
+plt.tight_layout()
+# plt.savefig("img/RNA/iso_hist.svg", dpi=300, transparent=True)
+plt.show()
+#+end_src
+
+Nat L_eff = 27.23
+Gen L_eff = 64.56
+Ratio = 2.48
+
+** VAE
+
+#+begin_src python
+import torch
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from torch import nn, optim
+from torch.utils.data import Dataset, DataLoader
+from pathlib import Path
+import re
+from glob import glob
+import numpy as np
+
+from src.vae.model import VAE
+from src.vae.utils import sample_prior
+from src.utils import ind_to_msa, get_one_hot, read_fasta, msa_to_oh
+
+
+def load_msa(msa_file, alphabet=None, pad_char='-'):
+    """Load an MSA file and return encoded tensor X, alphabet, and length."""
+    seqs = list(read_fasta(msa_file, seq_type="nuc").values())
+
+    if alphabet is None:
+        chars = sorted(set("".join(seqs)))
+        if pad_char not in chars:
+            chars.append(pad_char)
+        alphabet = chars
+
+    L = max(len(s) for s in seqs)
+    stoi = {c: i for i, c in enumerate(alphabet)}
+
+    X = torch.tensor(
+        [[stoi.get(c, stoi[pad_char]) for c in s.ljust(L, pad_char)] for s in seqs],
+        dtype=torch.long,
+    )
+    return X, alphabet, L
+
+
+class RNADataset(Dataset):
+    def __init__(self, X):
+        self.X = X
+
+    def __len__(self):
+        return self.X.size(0)
+
+    def __getitem__(self, i):
+        return self.X[i]
+
+
+def train_vae_on_msa(msa_file, epochs=100, batch_size=32, lr=1e-3, weight_decay=1e-5, beta=1.0, emb=5, latent_dim=16, hidden=128, alphabet=None, save_dir=".",):
+    X, alphabet, L = load_msa(msa_file, alphabet=alphabet)
+    dl = DataLoader(RNADataset(X), batch_size=batch_size, shuffle=True)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = VAE(
+        seq_len=L,
+        nb_state=len(alphabet),
+        emb=emb,
+        latent_dim=latent_dim,
+        hidden=hidden,
+    ).to(device)
+
+    opt = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    for ep in range(1, epochs + 1):
+        model.train()
+        tot = ce = kl = n = 0.0
+        for xb in dl:
+            xb = xb.to(device)
+            opt.zero_grad()
+            out = model(xb)
+            losses = model.loss(xb, out, beta=beta)
+            losses["total"].backward()
+            nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            opt.step()
+            b = xb.size(0)
+            tot += losses["total"].item() * b
+            ce += losses["ce"].item() * b
+            kl += losses["kl"].item() * b
+            n += b
+
+    save_path = Path(save_dir) / f"vae_{Path(msa_file).stem}.pt"
+    torch.save(
+        {
+            "model_state": model.state_dict(),
+            "seq_len": model.seq_len,
+            "nb_state": model.nb_state,
+            "emb": model.emb,
+            "alphabet": alphabet,
+        },
+        save_path,
+    )
+    return model, save_path
+
+# list of MSA files
+MSA_FILES = [
+]
+
+# optional shared alphabet (e.g. fixed RNA alphabet with gaps)
+shared_alphabet = ['A', 'U', 'G', 'C', '-']
+
+# for msa in MSA_FILES:
+# msa_file = "./data/MSA/RF00005_1.faclean"
+tmp = []
+for msa_file in glob("./data/FC_NAR/RNA_MSA/*.txt"):
+    model, path_f = train_vae_on_msa(msa_file, epochs=100, alphabet=shared_alphabet, save_dir="./scratch/")
+    nat_msa = list(read_fasta(msa_file, seq_type="nuc").values())
+    X_r = msa_to_oh(nat_msa)
+    Nr, L, k = X_r.shape
+    nat_iso = effective_length(X_r)
+
+    X = get_one_hot(sample_prior(model, 1000).argmax(dim=-1).numpy(), 5)
+    N, L, k = X.shape
+    gen_iso = isotropy_score(X)
+    name = re.match("./data/FC_NAR/RNA_MSA/(.+).txt", msa_file).group(1)
+    print(name, N, L, nat_iso, gen_iso)
+    tmp += [(name, N, L, nat_iso, gen_iso)]
+
+name_l, N_l, L_l, nat_l, gen_l = zip(*tmp)
+print(np.mean(np.array(gen_l)/np.array(L_l)))
+#+end_src
+
+nat_l/gen_l = 1.0621135170281963
+nat_l = 28.180004220649007
+gen_l = 27.267801900279405
+
+** Azo predictions
+#+begin_src python
+import numpy as np
+import pandas as pd
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from src.utils import msa_to_oh
+import matplotlib.pyplot as plt
+
+
+DATA_PATH = "../data/Azo/design_db.csv"
+COND = "T37C"
+
+# ---------------------------------------------------------------------
+# Load data and compute distance to WT
+# ---------------------------------------------------------------------
+data_all = pd.read_csv(DATA_PATH, sep=",", na_values=["nan"]).dropna()
+data = data_all[
+    (data_all["COND"] == COND) &
+    (data_all["ACTIVITY"].astype(float) > -2.76)
+].copy()
+
+wt_seq = open("../data/Azo/azo_wt.seq").read().strip()
+
+def hamming(a, b):
+    return sum(c1 != c2 for c1, c2 in zip(a, b))
+
+data["DIST"] = data["SEQ"].apply(lambda s: hamming(s[3:-1], wt_seq))
+
+# bins of 10 mutations: 0–9, 10–19, ...
+BIN = 10
+data["BIN"] = (data["DIST"] // BIN) * BIN
+
+# ---------------------------------------------------------------------
+# Per MODEL × BIN computation
+# ---------------------------------------------------------------------
+results = []
+
+for model in sorted(data["MODEL"].unique()):
+    df_m = data[data["MODEL"] == model]
+
+    for b in sorted(df_m["BIN"].unique()):
+        df_mb = df_m[df_m["BIN"] == b]
+        msa = df_mb["SEQ"].tolist()
+        if len(msa) == 0:
+            continue
+
+        X = msa_to_oh(msa, seq_type="nuc")   # (N, L, k)
+        N, L, k = X.shape
+
+        Neff     = neff_seq(X)
+        Leff     = effective_length(X, zs=True)
+        Pentr    = pos_entropy(X, neff=False)
+        avg_dist = average_dist(X)
+        ids      = X.argmax(axis=2)               # (N, L) integer-encoded
+        kmer_eff = kmer_entropy(ids, 3)      # as defined in your current kmer_entropy
+
+        results.append(
+            (model, b, N, L, Neff/N, Leff, Pentr, kmer_eff, avg_dist)
+        )
+
+df_results = pd.DataFrame(
+    results,
+    columns=["MODEL", "BIN", "N", "L", "Neff", "Leff", "pos_entropy", "kmer_eff", "avg_dist"]
+)
+df_results = df_results.fillna(0)
+
+dtype = "Neff"
+fig, ax = plt.subplots(figsize=(2.2, 1.97))
+for model, df_m in df_results.groupby("MODEL"):
+    ax.plot(
+        df_m["BIN"], df_m[dtype],
+        "-o", markersize=4,
+        label=str(model))
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.legend(frameon=False)
+# plt.tight_layout()
+# plt.savefig(f"img/RNA/azo_div_{dtype}.svg", dpi=300, transparent=True)
+plt.show()
+#+end_src
+
+#+RESULTS:
+: None
+
+* Proteins
+
+#+begin_src python
+from src.utils import read_fasta, msa_to_oh, read_fasta_no_insertions
+from eff_len import effective_length, pos_entropy, kmer_entropy, average_dist, neff_seq
+from src.data import data_af, data_rf, data_ef, data_of
+import numpy as np
+import matplotlib.pyplot as plt
+from glob import glob
+import re
+from scipy.stats import spearmanr, pearsonr
+
+tmp = []
+for infile in glob("./data/AF2/MSA4AlphaFold2/*/msas/*.a3m"):
+    name = re.search("./data/AF2/MSA4AlphaFold2/([^/]+)/.+", infile).group(1)
+    msa = read_fasta_no_insertions(infile, seq_type="protein")
+    X = msa_to_oh(list(msa.values()), seq_type="protein")
+    N, L, k = X.shape
+    iso = effective_length(X, zs=True, neff=False)
+    print("{:8} {:8} {:8} {:8.2f} {:8.2f}  ".format(name, N, L, iso, data_af[name]["LDDT"]))
+    tmp += [(name, N, L, iso)]
+
+#+end_src
+
+#+begin_src python
+from src.utils import read_fasta, msa_to_oh, read_fasta_no_insertions
+from src.data import data_af, data_rf, data_ef, data_of
+import numpy as np
+import matplotlib.pyplot as plt
+from glob import glob
+import re
+from scipy.stats import spearmanr, pearsonr
+import pandas as pd
+
+for mod_name, data_mod in [
+        ("esmfold", data_ef),
+        ("alphafold", data_af),
+        ("omegafold", data_of),
+        ("RoseTTAFold", data_rf),
+]:
+    data = pd.read_csv("./scratch/prot_div.txt", sep=",", na_values=["nan"], header=None)
+    data.columns = ["name", "N", "L", "L_eff"]
+    data["LL"] = data.L_eff / data.L
+    data = data[data.N > 10]
+    plt.rcParams.update({
+        "font.size": 6,
+        "axes.labelsize": 6,
+        "xtick.labelsize": 6,
+        "ytick.labelsize": 6,
+        "legend.fontsize": 6,
+    })
+    lddt = [list(data_mod[n].values())[3] for n, N in zip(data.name, data.N)]
+    tms = [list(data_mod[n].values())[2] for n, N in zip(data.name, data.N)]
+    lddt_c, lddt_p = spearmanr(data.L_eff, lddt)
+    tms_c, tms_p = spearmanr(data.L_eff, tms)
+    N_c, N_p = spearmanr(data.N, tms)
+    L_c, L_p = spearmanr(data.L, tms)
+    # print(mod_name, "plddt", lddt_c, lddt_p)
+    print(mod_name, "L_eff vs TMs", tms_c, tms_p)
+    print(mod_name, "N vs TMs", N_c, N_p)
+    print(mod_name, "L vs TMs", L_c, L_p)
+    fig, ax = plt.subplots(2, 1, figsize=(1.50, 2*1.50))
+    ax[0].scatter(data.LL, lddt, s=9)
+    ax[1].scatter(data.LL, tms, s=9)
+    ax[0].text(
+        0.98, 0.02,
+        f"$\\rho$={lddt_c:.2f}\n$p$={lddt_p:.2e}",
+        transform=ax[0].transAxes,
+        ha="right", va="bottom",
+        fontsize=8
+    )
+    ax[1].text(
+        0.98, 0.02,
+        f"$\\rho$={tms_c:.2f}\n$p$={tms_p:.2e}",
+        transform=ax[1].transAxes,
+        ha="right", va="bottom",
+        fontsize=8
+    )
+    ax[0].set_ylabel("lDDT")
+    ax[0].set_ylim([0, 1])
+    ax[1].set_ylim([0, 1])
+    ax[1].set_xlabel("$L_{eff}$/L")
+    ax[1].set_ylabel("TMS")
+    ax[0].set_xticklabels([])
+    plt.savefig(f"img/proteins/{mod_name}.svg", dpi=300, transparent=True)
+    plt.show()
+
+data = pd.read_csv("./scratch/prot_div.txt", sep=",", na_values=["nan"], header=None)
+data.columns = ["name", "N", "L", "L_eff"]
+data.L_eff.mean()
+#+end_src
+
+mean L_eff 21.801287588143317
+

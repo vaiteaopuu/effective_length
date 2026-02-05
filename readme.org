@@ -1,0 +1,22 @@
+* Overview
+This repo contains the code to reproduce the results in "A spectral framework
+for measuring diversity in multiple sequence alignments". It essentially
+introduce a measure (L_eff) to estimate the diversity (or amount of information)
+in multiple sequence alignments. L_eff allows a faithful comparison between
+MSAs, as well as generated datasets.
+
+* Content
+The code to compute L_eff on MSA is available in ~./package~. The code snippets
+to reproduce the figures in the paper are in ~reproducibility.org~. The data to
+produce these analyses were extracted from:
+- C. Lambert /et al/. (2025) Nat. Commun.
+- F. Calvanese /et al/. (2024) NAR
+- M. Mirdita /et al/. (2027) NAR
+
+* Install
+Requierements: Numpy
+
+#+begin_src bash
+cd package
+pip install .
+#+end_src

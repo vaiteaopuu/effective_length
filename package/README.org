@@ -1,0 +1,38 @@
+* Overview
+Reference implementation of **effective sequence length** \(L_{eff}\) and
+**spectral selection** for MSAs, as introduced in *Effective Sequence Length: A
+Spectral Framework for Measuring and Leveraging Diversity in MSAs*.
+
+* Installation
+
+#+begin_src python
+pip install .
+#+end_src
+
+* Usage
+
+Compute effective sequence lengths:
+#+begin_src python :results output
+from eff_len import read_fasta, msa_to_oh, effective_length
+
+msa = read_fasta("./data/RF00028.fa", seq_type="nuc")
+
+# compute the effective length
+msa_oh = msa_to_oh(msa)
+N, L, k = msa_oh.shape
+L_eff = effective_length(msa_oh)
+print(N, L, L_eff, L_eff/L)
+#+end_src
+
+#+RESULTS:
+: 2611 251 35.88477058938108 0.14296721350351027
+
+A command line tool is also proposed, which works as follows:
+#+begin_src bash
+# compute the effective length
+eff_len eff data/RF00028.fa --stype nuc
+
+# compute the effective length
+eff_len eff data/PF00636.25.fa --stype prot
+#+end_src
+

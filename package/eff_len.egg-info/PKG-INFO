@@ -1,0 +1,7 @@
+Metadata-Version: 2.1
+Name: eff-len
+Version: 0.1.0
+Summary: Effective sequence length (L_eff) and spectral selection for MSAs
+Author: Vaitea Opuu
+Requires-Python: >=3.8
+Requires-Dist: numpy
