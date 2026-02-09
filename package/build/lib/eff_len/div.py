@@ -89,7 +89,47 @@ def weighted_covariance(Z, w):
     return C, mu, Zt
 
 
-def effective_length(Z, w=None, tol=1e-12, zs=True, neff=False, reg=0.):
+def get_center_data(X, w):
+    mu = w @ X                        # (M,)
+    Zx = X - mu                       # center
+    Zw = np.sqrt(w)[:, None] * Zx     # sqrt(W) Zc
+    return Zw
+
+
+def effective_length(Z, w=None, tol=1e-12, zs=True, neff=False, reg=0., svd=True):
+    """
+    Estimate the effective dimensional length of a dataset via the entropy of
+    its variance spectrum.
+
+    Parameters
+    ----------
+    Z : array_like, shape (N, L, k)
+        Input tensor of N samples with L positions and k features per position.
+    w : array_like, optional
+        Sample weights of length N. If None, uniform weights are used.
+    tol : float, optional
+        Eigenvalue threshold; components below this value are discarded.
+    zs : bool, optional
+        If True, apply zero–sum (mean–removal) constraint across features.
+    neff : bool, optional
+        If True, returns a support estimate of the sequence space spanned by the MSA
+    reg : float, optional
+        Diagonal regularization added to covariance in eigenvalue mode.
+    svd : bool, optional
+        If True (or when N < 5M), use SVD of centered data; otherwise use
+        weighted covariance eigenvalues.
+
+    Returns
+    -------
+    float
+        Entropy-based effective rank of the feature space, optionally scaled
+        to an effective alphabet size when `neff=True`.
+
+    Notes
+    -----
+    The method computes the Shannon entropy of normalized singular values or
+    covariance eigenvalues and converts it to an effective dimension called L_eff
+    """
     N, L, k = Z.shape
     Z = Z.reshape(N, -1)
     if zs:
@@ -99,9 +139,14 @@ def effective_length(Z, w=None, tol=1e-12, zs=True, neff=False, reg=0.):
     if w is None:
         w = np.ones(N) / N
 
-    C, mu, Zt = weighted_covariance(Z, w)
+    if svd or N < 5 * M:
+        Zw = get_center_data(Z, w)
+        vals = np.linalg.svd(Zw, full_matrices=False, compute_uv=False)
+        vals = (vals ** 2) / Zw.shape[0]
+    else:
+        C, mu, Zt = weighted_covariance(Z, w)
+        vals = np.linalg.eigvalsh((C + C.T) / 2.0 + reg * np.eye(M))
 
-    vals = np.linalg.eigvalsh((C + C.T) / 2.0 + reg * np.eye(M))
     vals = vals[vals > tol]
     if vals.size == 0:
         return 0.0
@@ -125,3 +170,37 @@ def spectral_entropy(C, tol=1e-12):
     p = lam / S
     H = -np.sum(p * np.log(p))
     return H, lam, U
+
+
+def cross_effective_length(X, Y, wx=None, wy=None, tol=1e-12, zs=True):
+    """
+    Cross isotropy between two *independent* sample sets.
+    X: (Nx, Lx, k)
+    Y: (Ny, Ly, k)
+    """
+
+    Nx, Lx, k = X.shape
+    Ny, Ly, k = Y.shape
+
+    X = to_zero_sum(X.reshape(Nx, -1), Lx, k) if zs else X
+    Y = to_zero_sum(Y.reshape(Ny, -1), Ly, k) if zs else Y
+
+    if wx is None: wx = np.ones(Nx) / Nx
+    if wy is None: wy = np.ones(Ny) / Ny
+    wx = wx / wx.sum()
+    wy = wy / wy.sum()
+
+    Xc, Yc = get_center_data(X, wx), get_center_data(Y, wy)
+    # independent cross moment
+    Cxy = Xc @ Yc.T
+
+    # singular spectrum
+    s = np.linalg.svd(Cxy, compute_uv=False)
+    s = s[s > tol]
+    if s.size == 0:
+        return 0.0
+
+    p = s / s.sum()
+    H = -np.sum(p * np.log(p))
+
+    return float(np.exp(H) / (k - 1))

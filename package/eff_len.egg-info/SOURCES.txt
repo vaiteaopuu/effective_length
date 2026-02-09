@@ -1,5 +1,5 @@
 setup.py
-bin/leff
+bin/eff_len
 eff_len/__init__.py
 eff_len/div.py
 eff_len/utils.py

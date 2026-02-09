@@ -30,9 +30,9 @@ print(N, L, L_eff, L_eff/L)
 A command line tool is also proposed, which works as follows:
 #+begin_src bash
 # compute the effective length
-eff_len eff data/RF00028.fa --stype nuc
+eff_len data/RF00028.fa --stype nuc
 
 # compute the effective length
-eff_len eff data/PF00636.25.fa --stype prot
+eff_len data/PF00636.25.fa --stype prot
 #+end_src
 
