@@ -95,6 +95,7 @@ def fit_model(exp_conf, max_step, min_pearson, lr=0.01, N=10000, nb_gibbs=10, be
         pi, pij = get_freq_single_point(chains), get_freq_two_points(chains)
         # pearson = 1 - ((pij.flatten()-fij.flatten())**2).sum() / ((fij.flatten()-fij.flatten().mean())**2).sum().item()
         pearson = r2_score(fij.flatten(), pij.flatten())
+        # pearson = pearsonr(fij.flatten(), pij.flatten())
         step += 1
         # print(step, pearson)
 

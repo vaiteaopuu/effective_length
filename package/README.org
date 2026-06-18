@@ -13,7 +13,7 @@ pip install .
 
 Compute effective sequence lengths:
 #+begin_src python :results output
-from eff_len import read_fasta, msa_to_oh, effective_length
+from eff_len import read_fasta, msa_to_oh, effective_length, cross_effective_length, leff
 
 msa = read_fasta("./data/RF00028.fa", seq_type="nuc")
 
@@ -25,7 +25,7 @@ print(N, L, L_eff, L_eff/L)
 #+end_src
 
 #+RESULTS:
-: 2611 251 35.88477058938108 0.14296721350351027
+: 2611 251 35.88477058938092 0.14296721350350963
 
 A command line tool is also proposed, which works as follows:
 #+begin_src bash

@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+
+import argparse
+import numpy as np
+
+from eff_len import (
+    read_fasta,
+    msa_to_oh,
+    effective_length,
+)
+
+
+def load_msa(path, seq_type):
+    msa = read_fasta(path, seq_type=seq_type)
+    names = list(msa.keys())
+    seqs = [msa[n] for n in names]
+    X = msa_to_oh(msa, seq_type=seq_type)
+    N, L, k = X.shape
+    return names, seqs, X
+
+
+def cmd_eff(args):
+    _, _s, X = load_msa(args.fasta, args.stype)
+    Leff = effective_length(X)
+    print(Leff)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    parser.add_argument("fasta")
+    parser.add_argument("--stype", default="prot", choices=["prot", "nuc"])
+
+
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

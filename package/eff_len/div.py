@@ -3,6 +3,7 @@
 
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
+from .utils import msa_to_oh
 
 
 def average_dist(X):
@@ -34,18 +35,20 @@ def kmer_entropy(ids, kmer_len):
     return np.exp(H)
 
 
-def pos_entropy(X: np.ndarray, pos: bool = False, neff: bool = False, eps: float = 1e-12):
+def pos_entropy(X: np.ndarray, pos: bool = False, leff: bool=False, neff: bool = False, eps: float = 1e-12):
     assert len(X.shape) == 3, "MSA must be NxLxk, where N is the number of sequences, L the length, and k is 5 or 21"
     N, L, k = X.shape
-    p = X.reshape(N, -1).mean(axis=0)                 # frequency per symbol
+    p = X.mean(axis=0)                 # frequency per symbol
     p = np.clip(p, eps, 1.0)           # avoid log(0)
-    p = p.reshape(L, k)
+    H = -(p * np.log(p)).sum(axis=-1)
     if neff:
-        return np.exp((-(p * np.log(p))).sum(axis=-1).sum())
+        return np.exp(H.sum())
     elif pos:
-        return np.exp((-(p * np.log(p))).sum(axis=-1))
+        return np.exp(H)
+    elif leff:
+        return H.sum()/np.log(k)
     else:
-        return np.exp((-(p * np.log(p))).sum(axis=-1).mean())
+        return np.exp(H.mean())
 
 
 def neff_seq(X: np.ndarray, thres: float = 0.8, wei: bool = False):
@@ -96,7 +99,10 @@ def get_center_data(X, w):
     return Zw
 
 
-def effective_length(Z, w=None, tol=1e-12, zs=True, neff=False, reg=0., svd=True):
+def effective_length(
+    Z, w=None, tol=1e-12, signal_frac=None,
+    zs=True, neff=False, reg=0., svd=True
+):
     """
     Estimate the effective dimensional length of a dataset via the entropy of
     its variance spectrum.
@@ -108,34 +114,45 @@ def effective_length(Z, w=None, tol=1e-12, zs=True, neff=False, reg=0., svd=True
     w : array_like, optional
         Sample weights of length N. If None, uniform weights are used.
     tol : float, optional
-        Eigenvalue threshold; components below this value are discarded.
+        Absolute numerical eigenvalue threshold. Components below this value
+        are discarded before any signal-fraction truncation.
+    signal_frac : float or None, optional
+        Fraction of total retained variance to preserve. If in (0, 1], the
+        spectrum is sorted in decreasing order and truncated to the smallest
+        number of components whose cumulative variance is at least
+        `signal_frac`. For example, `signal_frac=0.99` retains components
+        explaining 99% of the variance.
     zs : bool, optional
-        If True, apply zero–sum (mean–removal) constraint across features.
+        If True, apply zero-sum mean-removal constraint across features.
     neff : bool, optional
-        If True, returns a support estimate of the sequence space spanned by the MSA
+        If True, return a support estimate of the sequence space spanned by
+        the MSA.
     reg : float, optional
         Diagonal regularization added to covariance in eigenvalue mode.
     svd : bool, optional
-        If True (or when N < 5M), use SVD of centered data; otherwise use
+        If True, or when N < 5M, use SVD of centered data; otherwise use
         weighted covariance eigenvalues.
 
     Returns
     -------
     float
         Entropy-based effective rank of the feature space, optionally scaled
-        to an effective alphabet size when `neff=True`.
+        to an effective alphabet-size support when `neff=True`.
 
     Notes
     -----
     The method computes the Shannon entropy of normalized singular values or
-    covariance eigenvalues and converts it to an effective dimension called L_eff
+    covariance eigenvalues and converts it to an effective dimension called
+    `L_eff`.
     """
     N, L, k = Z.shape
     Z = Z.reshape(N, -1)
+
     if zs:
         Z = to_zero_sum(Z, L, k)
 
     N, M = Z.shape
+
     if w is None:
         w = np.ones(N) / N
 
@@ -148,16 +165,29 @@ def effective_length(Z, w=None, tol=1e-12, zs=True, neff=False, reg=0., svd=True
         vals = np.linalg.eigvalsh((C + C.T) / 2.0 + reg * np.eye(M))
 
     vals = vals[vals > tol]
+
     if vals.size == 0:
         return 0.0
+
+    vals = np.sort(vals)[::-1]
+
+    if signal_frac is not None:
+        if not (0.0 < signal_frac <= 1.0):
+            raise ValueError("signal_frac must be in (0, 1].")
+
+        frac = np.cumsum(vals) / np.sum(vals)
+        n_keep = np.searchsorted(frac, signal_frac) + 1
+        vals = vals[:n_keep]
 
     p = vals / vals.sum()
     H = -np.sum(p * np.log(p))
 
+    denom = k - 1 if zs else k
+    Leff = np.exp(H) / denom
+
     if neff:
-        return k ** (np.exp(H) / (k-1 if zs else k))
-    else:
-        return float(np.exp(H) / (k-1 if zs else k))
+        return k ** Leff
+    return float(Leff)
 
 
 def spectral_entropy(C, tol=1e-12):
@@ -172,7 +202,7 @@ def spectral_entropy(C, tol=1e-12):
     return H, lam, U
 
 
-def cross_effective_length(X, Y, wx=None, wy=None, tol=1e-12, zs=True):
+def cross_effective_length(X, Y, wx=None, wy=None, tol=1e-12, zs=True, alpha=1.):
     """
     Cross isotropy between two *independent* sample sets.
     X: (Nx, Lx, k)
@@ -201,6 +231,32 @@ def cross_effective_length(X, Y, wx=None, wy=None, tol=1e-12, zs=True):
         return 0.0
 
     p = s / s.sum()
-    H = -np.sum(p * np.log(p))
 
-    return float(np.exp(H) / (k - 1))
+    if alpha == 1:
+        H = -np.sum(p * np.log(p))
+        eff_rank = np.exp(H)
+    else:
+        eff_rank = np.sum(p**alpha) ** (1.0 / (1.0 - alpha))
+
+    return float(eff_rank / (k - 1))
+
+
+def average_min_dist(Y, X):
+    if len(X.shape) == 3:
+        Xf, Yf = X.reshape(len(X), -1), Y.reshape(len(Y), -1)
+    else:
+        Xf, Yf = X, Y
+
+    XY = Xf @ Yf.T
+    XX = Xf @ Xf.T
+    np.fill_diagonal(XX, 0)
+    return (XY.max(1)[XX.max(1)>0] / XX.max(1)[XX.max(1)>0]).mean()
+
+
+def leff(msa: list, seq_type: str, **kwargs) -> float:
+    return effective_length(msa_to_oh(msa, seq_type=seq_type), **kwargs)
+
+
+def cross_leff(msa_x: list, msa_y: list, seq_type: str, **kwargs) -> float:
+    return cross_effective_length(msa_to_oh(msa_x, seq_type=seq_type), msa_to_oh(msa_y, seq_type=seq_type), **kwargs)
+
