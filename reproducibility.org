@@ -1,10 +1,3 @@
-#+begin_src python :results output
-from eff_len import read_fasta
-print(read_fasta("./test.fasta", fmt="a3m"))
-#+end_src
-
-#+RESULTS:
-
 * Artificial matrix
 ** correlated random sequences
 
