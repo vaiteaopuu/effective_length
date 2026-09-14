@@ -5,7 +5,7 @@ import math
 import sys
 
 from .utils import read_msa, msa_to_oh
-from .eff_len import effective_length, cross_effective_length
+from .div import effective_length, cross_effective_length
 
 # LDDT > 0.7 thresholds from Opuu, PLoS Comput Biol
 THRESHOLDS = {"AlphaFold": 4.96, "ESMFold": 18.69,
