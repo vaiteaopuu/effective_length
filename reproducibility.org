@@ -1,3 +1,10 @@
+#+begin_src python :results output
+from eff_len import read_fasta
+print(read_fasta("./test.fasta", fmt="a3m"))
+#+end_src
+
+#+RESULTS:
+
 * Artificial matrix
 ** correlated random sequences
 
@@ -664,7 +671,7 @@ ax.annotate(f"$\\rho=${cor:.2f} pvalue={pval:.3f}",
             xycoords="axes fraction",
             ha="left", va="top")
 # plt.tight_layout()
-plt.savefig("../img/RNA/nrj_mfe_L_eff.svg", dpi=300, transparent=True)
+# plt.savefig("../img/RNA/nrj_mfe_L_eff.svg", dpi=300, transparent=True)
 plt.show()
 #+end_src
 
