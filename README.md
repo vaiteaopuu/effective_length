@@ -2,36 +2,26 @@
 
 Spectral measure of diversity for multiple sequence alignments.
 
-## Overview
-
-This repo contains the code to reproduce the results in *"A spectral framework for measuring diversity in multiple sequence alignments"*. It introduces a measure, `L_eff`, that estimates the diversity (or amount of information) contained in a multiple sequence alignment. `L_eff` allows a faithful comparison between MSAs, as well as between generated datasets.
+`L_eff` estimates the diversity, or amount of information, contained in an MSA. It allows a faithful comparison between alignments, and between generated datasets.
 
 ## Install
 
-Requirements: NumPy.
-
 ```bash
-pip install eff_len
-```
-
-From source:
-
-```bash
-git clone https://github.com/vaiteaopuu/effective_length
-cd effective_length
-pip install .
+pip install eff-len
 ```
 
 ## Usage
 
-### Python
-
 ```python
 from eff_len import read_fasta, msa_to_oh, effective_length
+```
 
-msa = read_fasta("data/RF00028.fa", seq_type="nuc")
+### RNA
 
+```python
+msa = read_fasta("data/test/RF00028.fa", seq_type="nuc")
 msa_oh = msa_to_oh(msa, seq_type="nuc")
+
 N, L, k = msa_oh.shape
 L_eff = effective_length(msa_oh)
 
@@ -39,36 +29,44 @@ print(N, L, L_eff, L_eff / L)
 # 2611 251 35.88477058938092 0.14296721350350963
 ```
 
-`cross_effective_length` and `leff` are also exported, for comparing two alignments and for the convenience wrapper respectively.
+### Protein
 
-## Repository content
+```python
+msa = read_fasta("data/test/PF00636.25.fa", seq_type="prot")
+msa_oh = msa_to_oh(msa, seq_type="prot")
 
-| Path | Description |
-| --- | --- |
-| `src/eff_len/` | The package itself |
-| `analysis/` | Notebooks and scripts |
-| `data/` | Example alignments |
-| `reproducibility.org` | Code snippets reproducing the figures in the paper |
+N, L, k = msa_oh.shape
+L_eff = effective_length(msa_oh)
 
-## Data sources
+print(N, L, L_eff, L_eff / L)
+# 230 377 6.597405579230785 0.01749974954703126
+```
 
-The data used in these analyses were extracted from:
+### a3m files
+
+`read_fasta` also reads `.a3m` and `.a2m`, as produced by HHblits, MMseqs2 and ColabFold. Lowercase insertion columns are removed automatically.
+
+```python
+msa = read_fasta("query.a3m", seq_type="prot")
+```
+
+### Comparing two alignments
+
+```python
+from eff_len import cross_effective_length
+
+cross_effective_length(msa_oh_a, msa_oh_b)
+```
+
+## Reproducing the paper
+
+Code for the figures in *"A spectral framework for measuring diversity in multiple sequence alignments"* is in `reproducibility.org`.
+
+Data were extracted from:
 
 - C. Lambert *et al.* (2025) *Nat. Commun.*
 - F. Calvanese *et al.* (2024) *NAR*
 - M. Mirdita *et al.* (2027) *NAR*
-
-## Citation
-
-If you use this code, please cite:
-
-```bibtex
-@article{opuu_spectral,
-  title   = {A spectral framework for measuring diversity in multiple sequence alignments},
-  author  = {Opuu, Vaitea},
-  year    = {2026}
-}
-```
 
 ## License
 

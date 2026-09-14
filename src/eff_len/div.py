@@ -77,11 +77,9 @@ def helmert_basis(k: int) -> np.ndarray:
     return H
 
 
-def to_zero_sum(X: np.ndarray, L: int, k: int) -> np.ndarray:
-    # X: N x (kL) one-hot, L positions, k symbols
-    Q = helmert_basis(k)                 # k x (k-1)
-    T = np.kron(np.eye(L), Q)            # (kL) x (L*(k-1))
-    return X @ T                         # N x L*(k-1)
+def to_zero_sum(X, L, k):
+    Q = helmert_basis(k)
+    return (X.reshape(-1, L, k) @ Q).reshape(len(X), -1)
 
 
 def weighted_covariance(Z, w):

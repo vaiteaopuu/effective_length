@@ -35,23 +35,48 @@ def get_one_hot(data, num_classes):
     return oh
 
 
-def read_fasta(infile, seq_type="prot"):
-    results = {}
+def read_fasta(infile, seq_type="prot", fmt="auto"):
+    """Read an aligned FASTA / a2m / a3m file into a {name: sequence} dict.
+
+    In a3m/a2m, lowercase residues and '.' are insertions relative to the
+    query and are removed to recover the match columns. With fmt="auto" this
+    is applied when the extension is .a3m/.a2m or any lowercase residue is
+    present; use fmt="fasta" to keep lowercase as residues.
+    """
+    raw = {}
+    name = None
     with open(infile, 'r') as f:
-        name = None
-        for l in f:
-            l = l.strip()
+        for i, l in enumerate(f):
+            l = l.strip().replace("\x00", "")
+            if not l or (i == 0 and l.startswith("#")):
+                continue
             if l.startswith(">"):
                 name = l[1:]
-                results[name] = ""
-            elif name:
-                if seq_type == "nuc":
-                    cleaned = re.sub(r'[^ACGUT]', '-', l.upper()).replace("T", "U")
-                elif seq_type == "prot":
-                    cleaned = re.sub(r'[^ACDEFGHIKLMNPQRSTVWY]', '-', l.upper())
-                else:
-                    cleaned = l.upper()
-                results[name] += cleaned
+                raw[name] = ""
+            elif name is not None:
+                raw[name] += l
+
+    if fmt == "a3m" or (fmt == "auto" and (
+            str(infile).endswith((".a3m", ".a2m"))
+            or any(c.islower() for s in raw.values() for c in s))):
+        raw = {n: re.sub(r'[a-z.]', '', s) for n, s in raw.items()}
+
+    results = {}
+    for n, s in raw.items():
+        s = s.upper()
+        if seq_type == "nuc":
+            results[n] = re.sub(r'[^ACGUT]', '-', s).replace("T", "U")
+        elif seq_type == "prot":
+            results[n] = re.sub(r'[^ACDEFGHIKLMNPQRSTVWY]', '-', s)
+        else:
+            results[n] = s
+
+    lengths = {len(s) for s in results.values()}
+    if len(lengths) > 1:
+        raise ValueError(
+            f"{infile}: sequences have unequal lengths {sorted(lengths)}; "
+            "input must be aligned (for a3m files pass fmt='a3m')."
+        )
     return results
 
 
