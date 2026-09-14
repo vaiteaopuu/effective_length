@@ -22,3 +22,9 @@ dependencies = ["numpy"]
 [project.urls]
 Homepage = "https://github.com/vaiteaopuu/effective_length"
 Issues = "https://github.com/vaiteaopuu/effective_length/issues"
+
+[project.scripts]
+eff_len = "eff_len.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/eff_len"]
