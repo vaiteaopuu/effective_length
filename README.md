@@ -13,12 +13,7 @@ pip install eff-len
 ```
 
 ## Usage
-
-```python
-from eff_len import read_fasta, msa_to_oh, effective_length
-```
-
-Or in command line:
+In command line:
 
 ```console
 $ eff_len data/test/RF00028.fa --fmt fasta --stype nuc
@@ -28,6 +23,12 @@ data/test/RF00028.fa
   effective   L_eff   = 35.88
   normalised  L_eff/L = 0.143
   support     log10 W = 25.08
+```
+
+Or in python:
+
+```python
+from eff_len import read_fasta, msa_to_oh, effective_length
 ```
 
 ### RNA
