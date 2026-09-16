@@ -1,5 +1,7 @@
 # eff_len
 
+![Effective length intuition](data/effective_length_intuition.png)
+
 Spectral measure of diversity for multiple sequence alignments.
 
 `L_eff` estimates the diversity, or amount of information, contained in an MSA. It allows a faithful comparison between alignments, and between generated datasets.
@@ -14,6 +16,18 @@ pip install eff-len
 
 ```python
 from eff_len import read_fasta, msa_to_oh, effective_length
+```
+
+Or in command line:
+
+```console
+$ eff_len data/test/RF00028.fa --fmt fasta --stype nuc
+data/test/RF00028.fa
+  sequences   N       = 2611
+  length      L       = 251
+  effective   L_eff   = 35.88
+  normalised  L_eff/L = 0.143
+  support     log10 W = 25.08
 ```
 
 ### RNA
@@ -66,7 +80,7 @@ Data were extracted from:
 
 - C. Lambert *et al.* (2025) *Nat. Commun.*
 - F. Calvanese *et al.* (2024) *NAR*
-- M. Mirdita *et al.* (2027) *NAR*
+- M. Mirdita *et al.* (2017) *NAR*
 
 ## License
 
